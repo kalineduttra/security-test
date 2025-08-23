@@ -1,0 +1,19 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Run security header scan
+        run: |
+          echo "Starting the security header verification..."
+          chmod +x ./header-security-check.sh
+          ./header-security-check.sh https://discord.com/channels/@me
