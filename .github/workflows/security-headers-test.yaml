@@ -19,7 +19,7 @@ jobs:
         run: |
           echo "Starting the security header verification..."
           chmod +x ./header-security-check.sh
-          ./header-security-check.sh https://discord.com/channels/@me > security_report.txt
+          ./header-security-check.sh https://www.docker.com/ > security_report.txt
 
       - name: Upload security report artifact
         uses: actions/upload-artifact@v4
@@ -37,17 +37,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: security-report
-
-      - name: Get current date
-        id: date_step
-        run: echo "DATE=$(date +%F-%H%M)" >> $GITHUB_ENV
+          path: ./
 
       - name: Generate PDF from security report
         run: |
-          pandoc -s "security-report/security_report.txt" -o security-report-${{ env.DATE }}.pdf
+          pandoc -s "security_report.txt" -o security-report.pdf
 
       - name: Upload PDF report artifact
         uses: actions/upload-artifact@v4
         with:
-          name: security-report-${{ env.DATE }}
-          path: security-report-${{ env.DATE }}.pdf
+          name: security-report-pdf
+          path: security-report.pdf
