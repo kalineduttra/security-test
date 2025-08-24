@@ -8,88 +8,130 @@ if [ -z "$URL" ]; then
   exit 1
 fi
 
-# Capture all headers
-echo "--- Getting headers from $URL ---"
-HEADER=$(curl -ILs --max-redirs 10 "$URL" | tr '[:upper:]' '[:lower:]')
-
-# Check if the request was successful
-if [ -z "$HEADER" ]; then
-  echo "Error: Could not get headers from URL '$URL'. Please check the URL and connectivity."
+# Validate URL format
+if [[ ! "$URL" =~ ^https?:// ]]; then
+  echo "Error: URL must start with http:// or https://"
   exit 1
 fi
 
-# Function to check for the presence of a header
-check_header() {
-  local header_name=$1
-  local message_present=$2
-  local message_absent=$3
+# Capture all headers with better error handling
+HEADER=$(curl -ILs --max-redirs 10 --max-time 30 --retry 2 -H "User-Agent: Security-Header-Checker/1.0" "$URL" 2>/dev/null | tr -d '\r' | tr '[:upper:]' '[:lower:]')
 
-  if echo "$HEADER" | grep -q "$header_name"; then
-    echo "  - ${header_name}: Present. $message_present"
-  else
-    echo "  - ${header_name}: Absent. $message_absent"
-  fi
+# Check if the request was successful
+if [ -z "$HEADER" ]; then
+  echo "Error: Could not get headers from URL '$URL'. Please check:"
+  echo "  - URL validity"
+  echo "  - Network connectivity"
+  echo "  - Server availability"
+  exit 1
+fi
+
+# Check for HTTP errors
+HTTP_STATUS=$(echo "$HEADER" | grep -E "^http/" | tail -1 | awk '{print $2}')
+if [[ "$HTTP_STATUS" =~ ^[45][0-9][0-9]$ ]]; then
+  echo "Error: Server returned HTTP $HTTP_STATUS for URL '$URL'"
+  exit 1
+fi
+
+# Extract just the headers (remove status lines)
+HEADERS_ONLY=$(echo "$HEADER" | grep -E -v "^(http/|$|location:|content-)" | sed '/^$/q')
+
+# Start markdown output with timestamp
+echo "# Security Header Report"
+echo "**Target URL:** \`$URL\`"
+echo "**HTTP Status:** $HTTP_STATUS"
+
+echo "## Received Headers"
+echo "\`\`\`http"
+echo "$HEADERS_ONLY"
+echo "\`\`\`"
+
+echo "## Security Header Analysis"
+echo "| Header | Status | Value | Recommendation |"
+echo "|--------|--------|-------|----------------|"
+
+# Function to extract header value
+get_header_value() {
+  local header_name=$1
+  echo "$HEADER" | grep -E "^$header_name:" | head -1 | sed "s/^$header_name:\s*//i" | tr -d '\r'
 }
 
-# All received headers
-echo "--- Received headers ---"
-echo "$HEADER"
+# Function to output markdown table rows
+output_markdown_row() {
+  local header_name=$1
+  local status=$2
+  local value=$3
+  local recommendation=$4
+  echo "| $header_name | $status | \`$value\` | $recommendation |"
+}
 
-# Check header security
-echo "Security Report for: $URL"
+# Check header security functions
 check_strict_transport_security() {
-  if echo "$HEADER" | grep -q "strict-transport-security"; then
-    if echo "$HEADER" | grep -q "max-age=[1-9][0-9]*;.*includesubdomains"; then
-      echo "  - Strict-Transport-Security (HSTS): Present and Secure. High max-age and subdomains included."
+  local value=$(get_header_value "strict-transport-security")
+  if [ -n "$value" ]; then
+    if echo "$value" | grep -q "max-age=[1-9][0-9]*" && echo "$value" | grep -q "includesubdomains"; then
+      output_markdown_row "Strict-Transport-Security" "Secure" "$value" "High max-age with includeSubDomains"
+    elif echo "$value" | grep -q "max-age=[1-9][0-9]*"; then
+      output_markdown_row "Strict-Transport-Security" "Partial" "$value" "Add includeSubDomains directive"
     else
-      echo "  - Strict-Transport-Security (HSTS): Insecure. Low max-age or lack of 'includesubdomains'."
+      output_markdown_row "Strict-Transport-Security" "Insecure" "$value" "Increase max-age (min 31536000)"
     fi
   else
-    echo "  - Strict-Transport-Security (HSTS): Absent. Recommendation: Implement to enforce HTTPS."
+    output_markdown_row "Strict-Transport-Security" "Absent" "N/A" "Implement HSTS with min 31536000 max-age"
   fi
 }
 
 check_x_content_type_options() {
-  if echo "$HEADER" | grep -q "x-content-type-options:.*nosniff"; then
-    echo "  - X-Content-Type-Options: Present and Secure."
+  local value=$(get_header_value "x-content-type-options")
+  if [ -n "$value" ] && echo "$value" | grep -q "nosniff"; then
+    output_markdown_row "X-Content-Type-Options" "Secure" "$value" "Properly configured"
   else
-    echo "  - X-Content-Type-Options: Insecure/Absent. Recommendation: Use 'nosniff'."
+    output_markdown_row "X-Content-Type-Options" "Absent" "N/A" "Set to 'nosniff' to prevent MIME sniffing"
   fi
 }
 
 check_x_frame_options() {
-  if echo "$HEADER" | grep -q "x-frame-options:.*deny\|x-frame-options:.*sameorigin"; then
-    echo "  - X-Frame-Options: Present and Secure."
+  local value=$(get_header_value "x-frame-options")
+  if [ -n "$value" ] && echo "$value" | grep -q -E "^(deny|sameorigin)$"; then
+    output_markdown_row "X-Frame-Options" "Secure" "$value" "Properly configured"
+  elif [ -n "$value" ]; then
+    output_markdown_row "X-Frame-Options" "Partial" "$value" "Consider using 'DENY' or 'SAMEORIGIN'"
   else
-    echo "  - X-Frame-Options: Insecure/Absent. Recommendation: Use 'DENY' or 'SAMEORIGIN'."
+    output_markdown_row "X-Frame-Options" "Absent" "N/A" "Set to 'DENY' or 'SAMEORIGIN' to prevent clickjacking"
   fi
 }
 
-check_content_security-policy() {
-  if echo "$HEADER" | grep -q "content-security-policy"; then
-    if echo "$HEADER" | grep -q "unsafe-inline" || echo "$HEADER" | grep -q "unsafe-eval"; then
-      echo "  - Content-Security-Policy (CSP): Insecure. Contains 'unsafe-inline' or 'unsafe-eval'."
+check_content_security_policy() {
+  local value=$(get_header_value "content-security-policy")
+  if [ -n "$value" ]; then
+    if echo "$value" | grep -q -E "(unsafe-inline|unsafe-eval|\\*)"; then
+      output_markdown_row "Content-Security-Policy" "Partial" "$value" "Contains unsafe directives"
     else
-      echo "  - Content-Security-Policy (CSP): Present and Potentially Secure."
+      output_markdown_row "Content-Security-Policy" "Secure" "$value" "Well configured"
     fi
   else
-    echo "  - Content-Security-Policy (CSP): Absent. Recommendation: Implement a robust policy to mitigate XSS."
+    output_markdown_row "Content-Security-Policy" "Absent" "N/A" "Implement CSP to mitigate XSS attacks"
   fi
 }
 
 check_referrer_policy() {
-  if echo "$HEADER" | grep -q "referrer-policy:.*no-referrer\|referrer-policy:.*same-origin\|referrer-policy:.*strict-origin-when-cross-origin"; then
-    echo "  - Referrer-Policy: Present and Secure."
+  local value=$(get_header_value "referrer-policy")
+  local secure_policies="no-referrer|strict-origin|strict-origin-when-cross-origin|no-referrer-when-downgrade"
+  if [ -n "$value" ] && echo "$value" | grep -q -E "($secure_policies)"; then
+    output_markdown_row "Referrer-Policy" "Secure" "$value" "Properly configured"
+  elif [ -n "$value" ]; then
+    output_markdown_row "Referrer-Policy" "Partial" "$value" "Consider stricter policy"
   else
-    echo "  - Referrer-Policy: Insecure/Absent. Recommendation: Use 'strict-origin-when-cross-origin' to protect privacy."
+    output_markdown_row "Referrer-Policy" "Absent" "N/A" "Set to 'strict-origin-when-cross-origin'"
   fi
 }
 
 check_permission_policy() {
-  if echo "$HEADER" | grep -q "permissions-policy"; then
-    echo "  - Permissions-Policy: Present."
+  local value=$(get_header_value "permissions-policy")
+  if [ -n "$value" ]; then
+    output_markdown_row "Permissions-Policy" "Present" "$value" "Properly configured"
   else
-    echo "  - Permissions-Policy: Absent. Recommendation: Implement to disable unused sensitive APIs."
+    output_markdown_row "Permissions-Policy" "Absent" "N/A" "Implement to restrict sensitive features"
   fi
 }
 
@@ -97,6 +139,8 @@ check_permission_policy() {
 check_strict_transport_security
 check_x_content_type_options
 check_x_frame_options
-check_content_security-policy
+check_content_security_policy
 check_referrer_policy
 check_permission_policy
+
+exit 0
