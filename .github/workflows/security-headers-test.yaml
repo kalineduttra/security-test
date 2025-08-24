@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build_and_test:
@@ -16,7 +19,7 @@ jobs:
         run: |
           echo "Starting the security header verification..."
           chmod +x ./header-security-check.sh
-          ./header-security-check.sh https://discord.com/channels/@me
+          ./header-security-check.sh https://discord.com/channels/@me > security_report.txt
 
       - name: Upload security report artifact
         uses: actions/upload-artifact@v4
@@ -25,18 +28,15 @@ jobs:
           path: security_report.txt
 
   generate_pdf_docs:
-    runs-on: ubuntu-latest
     needs: build_and_test
+    runs-on: ubuntu-latest
+    container:
+      image: pandoc/latex:latest
     steps:
       - name: Download security report artifact
         uses: actions/download-artifact@v4
         with:
           name: security-report
-
-      - name: Install Pandoc and LaTeX
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y pandoc texlive-latex-extra texlive-fonts-recommended lmodern
 
       - name: Get current date
         id: date_step
