@@ -8,19 +8,13 @@ if [ -z "$URL" ]; then
   exit 1
 fi
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-
 # Capture all headers
-echo -e "${YELLOW}--- Getting headers from $URL ---${NC}"
+echo "--- Getting headers from $URL ---"
 HEADER=$(curl -ILs --max-redirs 10 "$URL" | tr '[:upper:]' '[:lower:]')
 
 # Check if the request was successful
 if [ -z "$HEADER" ]; then
-  echo -e "${RED}Error: Could not get headers from URL '$URL'. Please check the URL and connectivity.${NC}"
+  echo "Error: Could not get headers from URL '$URL'. Please check the URL and connectivity."
   exit 1
 fi
 
@@ -31,72 +25,71 @@ check_header() {
   local message_absent=$3
 
   if echo "$HEADER" | grep -q "$header_name"; then
-    echo -e "  - ${header_name}: ${GREEN}Present.${NC} $message_present"
+    echo "  - ${header_name}: Present. $message_present"
   else
-    echo -e "  - ${header_name}: ${RED}Absent.${NC} $message_absent"
+    echo "  - ${header_name}: Absent. $message_absent"
   fi
 }
 
 # All received headers
-echo -e "${YELLOW}--- Received headers ---${NC}"
+echo "--- Received headers ---"
 echo "$HEADER"
-echo -e "\n"
 
 # Check header security
-echo -e "${YELLOW}Security Report for: $URL${NC}"
+echo "Security Report for: $URL"
 check_strict_transport_security() {
   if echo "$HEADER" | grep -q "strict-transport-security"; then
     if echo "$HEADER" | grep -q "max-age=[1-9][0-9]*;.*includesubdomains"; then
-      echo -e "  - Strict-Transport-Security (HSTS): ${GREEN}Present and Secure.${NC} High max-age and subdomains included."
+      echo "  - Strict-Transport-Security (HSTS): Present and Secure. High max-age and subdomains included."
     else
-      echo -e "  - Strict-Transport-Security (HSTS): ${YELLOW}Insecure.${NC} Low max-age or lack of 'includesubdomains'."
+      echo "  - Strict-Transport-Security (HSTS): Insecure. Low max-age or lack of 'includesubdomains'."
     fi
   else
-    echo -e "  - Strict-Transport-Security (HSTS): ${RED}Absent.${NC} Recommendation: Implement to enforce HTTPS."
+    echo "  - Strict-Transport-Security (HSTS): Absent. Recommendation: Implement to enforce HTTPS."
   fi
 }
 
 check_x_content_type_options() {
   if echo "$HEADER" | grep -q "x-content-type-options:.*nosniff"; then
-    echo -e "  - X-Content-Type-Options: ${GREEN}Present and Secure.${NC}"
+    echo "  - X-Content-Type-Options: Present and Secure."
   else
-    echo -e "  - X-Content-Type-Options: ${YELLOW}Insecure/Absent.${NC} Recommendation: Use 'nosniff'."
+    echo "  - X-Content-Type-Options: Insecure/Absent. Recommendation: Use 'nosniff'."
   fi
 }
 
 check_x_frame_options() {
   if echo "$HEADER" | grep -q "x-frame-options:.*deny\|x-frame-options:.*sameorigin"; then
-    echo -e "  - X-Frame-Options: ${GREEN}Present and Secure.${NC}"
+    echo "  - X-Frame-Options: Present and Secure."
   else
-    echo -e "  - X-Frame-Options: ${YELLOW}Insecure/Absent.${NC} Recommendation: Use 'DENY' or 'SAMEORIGIN'."
+    echo "  - X-Frame-Options: Insecure/Absent. Recommendation: Use 'DENY' or 'SAMEORIGIN'."
   fi
 }
 
 check_content_security-policy() {
   if echo "$HEADER" | grep -q "content-security-policy"; then
     if echo "$HEADER" | grep -q "unsafe-inline" || echo "$HEADER" | grep -q "unsafe-eval"; then
-      echo -e "  - Content-Security-Policy (CSP): ${YELLOW}Insecure.${NC} Contains 'unsafe-inline' or 'unsafe-eval'."
+      echo "  - Content-Security-Policy (CSP): Insecure. Contains 'unsafe-inline' or 'unsafe-eval'."
     else
-      echo -e "  - Content-Security-Policy (CSP): ${GREEN}Present and Potentially Secure.${NC}"
+      echo "  - Content-Security-Policy (CSP): Present and Potentially Secure."
     fi
   else
-    echo -e "  - Content-Security-Policy (CSP): ${RED}Absent.${NC} Recommendation: Implement a robust policy to mitigate XSS."
+    echo "  - Content-Security-Policy (CSP): Absent. Recommendation: Implement a robust policy to mitigate XSS."
   fi
 }
 
 check_referrer_policy() {
   if echo "$HEADER" | grep -q "referrer-policy:.*no-referrer\|referrer-policy:.*same-origin\|referrer-policy:.*strict-origin-when-cross-origin"; then
-    echo -e "  - Referrer-Policy: ${GREEN}Present and Secure.${NC}"
+    echo "  - Referrer-Policy: Present and Secure."
   else
-    echo -e "  - Referrer-Policy: ${YELLOW}Insecure/Absent.${NC} Recommendation: Use 'strict-origin-when-cross-origin' to protect privacy."
+    echo "  - Referrer-Policy: Insecure/Absent. Recommendation: Use 'strict-origin-when-cross-origin' to protect privacy."
   fi
 }
 
 check_permission_policy() {
   if echo "$HEADER" | grep -q "permissions-policy"; then
-    echo -e "  - Permissions-Policy: ${GREEN}Present.${NC}"
+    echo "  - Permissions-Policy: Present."
   else
-    echo -e "  - Permissions-Policy: ${RED}Absent.${NC} Recommendation: Implement to disable unused sensitive APIs."
+    echo "  - Permissions-Policy: Absent. Recommendation: Implement to disable unused sensitive APIs."
   fi
 }
 
