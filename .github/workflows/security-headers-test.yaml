@@ -10,10 +10,44 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Run security header scan
         run: |
           echo "Starting the security header verification..."
           chmod +x ./header-security-check.sh
           ./header-security-check.sh https://discord.com/channels/@me
+
+      - name: Upload security report artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-report
+          path: security_report.txt
+
+  generate_pdf_docs:
+    runs-on: ubuntu-latest
+    needs: build_and_test
+    steps:
+      - name: Download security report artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: security-report
+
+      - name: Install Pandoc and LaTeX
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pandoc texlive-latex-extra texlive-fonts-recommended lmodern
+
+      - name: Get current date
+        id: date_step
+        run: echo "DATE=$(date +%F-%H%M)" >> $GITHUB_ENV
+
+      - name: Generate PDF from security report
+        run: |
+          pandoc -s "security-report/security_report.txt" -o security-report-${{ env.DATE }}.pdf
+
+      - name: Upload PDF report artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-report-${{ env.DATE }}
+          path: security-report-${{ env.DATE }}.pdf
