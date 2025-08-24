@@ -37,25 +37,36 @@ fi
 HEADERS_ONLY=$(echo "$HEADER" | grep -E -v "^(http/|$|location:|content-)" | sed '/^$/q')
 
 # Start markdown output with timestamp
-echo "# Security Header Report"
-echo " "
-echo "**Target URL:** \`$URL\`"
-echo "**HTTP Status:** $HTTP_STATUS"
-echo " "
+echo -e "# Security Header Report \n"
+echo -e "**Target URL:** \`$URL\` \n"
+echo -e "**HTTP Status:** $HTTP_STATUS \n"
 
 echo "## Received Headers"
 echo "\`\`\`http"
-echo "$HEADERS_ONLY"
+echo "$HEADERS_ONLY" | fold -w 95 -s
 echo "\`\`\`"
+echo ""
 
 echo "## Security Header Analysis"
-echo "| Header | Status |  Value  | Recommendation |"
-echo "|--------|--------|---------|----------------|"
+echo "| Header | Status | Value | Recommendation |"
+echo "|--------|--------|-------|----------------|"
 
 # Function to extract header value
 get_header_value() {
   local header_name=$1
   echo "$HEADER" | grep -E "^$header_name:" | head -1 | sed "s/^$header_name:\s*//i" | tr -d '\r'
+}
+
+# Function to wrap text if longer than 18 characters
+wrap_text() {
+  local text="$1"
+  local max_length=18
+  
+  if [ ${#text} -gt $max_length ]; then
+    echo "$text" | fold -w $max_length -s
+  else
+    echo "$text"
+  fi
 }
 
 # Function to output markdown table rows
@@ -64,7 +75,15 @@ output_markdown_row() {
   local status=$2
   local value=$3
   local recommendation=$4
-  echo "| $header_name | $status | \`$value\` | $recommendation |"
+  
+  # Wrap values longer than 18 characters
+  local wrapped_value=$(wrap_text "$value")
+  local wrapped_recommendation="$recommendation"
+  
+  # Replace newlines with <br> for markdown table compatibility
+  wrapped_value=$(echo "$wrapped_value" | sed ':a;N;$!ba;s/\n/<br>/g')
+  
+  echo "| $header_name | $status | $wrapped_value | $wrapped_recommendation |"
 }
 
 # Check header security functions
