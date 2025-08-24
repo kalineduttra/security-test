@@ -38,8 +38,10 @@ HEADERS_ONLY=$(echo "$HEADER" | grep -E -v "^(http/|$|location:|content-)" | sed
 
 # Start markdown output with timestamp
 echo "# Security Header Report"
+echo " "
 echo "**Target URL:** \`$URL\`"
 echo "**HTTP Status:** $HTTP_STATUS"
+echo " "
 
 echo "## Received Headers"
 echo "\`\`\`http"
@@ -47,8 +49,8 @@ echo "$HEADERS_ONLY"
 echo "\`\`\`"
 
 echo "## Security Header Analysis"
-echo "| Header | Status | Value | Recommendation |"
-echo "|--------|--------|-------|----------------|"
+echo "| Header | Status |  Value  | Recommendation |"
+echo "|--------|--------|---------|----------------|"
 
 # Function to extract header value
 get_header_value() {
