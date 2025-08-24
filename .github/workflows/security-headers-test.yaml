@@ -42,10 +42,9 @@ jobs:
       - name: Generate PDF from security report
         run: |
           pandoc -s "security_report.txt" -o security-report.pdf \
-          --pdf-engine=xelatex \
+            --pdf-engine=xelatex \
             -V geometry:margin=0.5in \
-            -V fontsize=10pt \
-            -V mainfont="DejaVu Sans"
+            -V fontsize=10pt
 
       - name: Upload PDF report artifact
         uses: actions/upload-artifact@v4
