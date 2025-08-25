@@ -41,12 +41,6 @@ echo -e "# Security Header Report \n"
 echo -e "**Target URL:** \`$URL\` \n"
 echo -e "**HTTP Status:** $HTTP_STATUS \n"
 
-echo "## Received Headers"
-echo "\`\`\`http"
-echo "$HEADERS_ONLY" | fold -w 95 -s
-echo "\`\`\`"
-echo ""
-
 echo "## Security Header Analysis"
 echo "| Header | Status | Value | Recommendation |"
 echo "|--------|--------|-------|----------------|"
@@ -163,5 +157,10 @@ check_x_frame_options
 check_content_security_policy
 check_referrer_policy
 check_permission_policy
+
+echo "## Received Headers (Full Diagnostic)"
+echo "\`\`\`http"
+echo "$HEADERS_ONLY" | fold -w 95 -s
+echo "\`\`\`"
 
 exit 0
