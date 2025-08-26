@@ -2,13 +2,18 @@
 
 ### **Header Security Test Automation**
 
-A solution focused on evaluating the **implementation and integrity of web headers**, providing clear and accessible documentation for both technical professionals and non-technical stakeholders.
+A solution focused on evaluating the implementation and integrity of web headers, providing clear and accessible documentation for both technical professionals and non-technical stakeholders.
 
 ![Diagram](support/security-test-diagram.drawio.png)
 
-### **Objective**
+### **Model**
 
-The primary objective is to verify and validate the correctness and effectiveness of the **security implementation of system headers**. When a weakness in these headers is identified, the solution helps in assessing the associated risk and provides clear guidance for implementing an improvement plan.
+The report presents the analysis in two main sections:
+1. Header Analysis Summary: The summary is presented in a table format to provide an immediate diagnostic overview of the status, values ​​of key headers, and security best practice recommendations.
+
+2. Detailed Diagnostics (Log): A detailed log section, providing complete context so developers can investigate issues, perform debugging, and ensure that fixes are implemented accurately.
+
+![Template](support/report-template.png)
 
 ### **Structure**
 
@@ -22,7 +27,7 @@ The primary objective is to verify and validate the correctness and effectivenes
     └── header-security-check.sh
 ```
 
-* **.github/workflows/:** used to automatically test the security headers of a web application.
+* **.github/workflows/:** It will automatically fire on push and pull request events. The pipeline checks the code, runs the `header-security-check.sh` script at the specified URL and generates a PDF report inside a Docker container using a LaTex image for better formatting.
 
 * **support/:** Directory for support files
 
